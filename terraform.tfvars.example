@@ -5,7 +5,10 @@ cluster_name         = "my-eks-cluster"
 external_domain_name = "grafana.example.com"
 internal_domain_name = "observability.internal.example.com"
 
-observability_namespace = "observability"
+external_domain_for_acm = "example.com"
+internal_domain_for_acm = "internal.example.com"
+
+observability_namespace = "monitoring"
 
 # Storage configuration (Total EFS: 60Gi)
 storage_config = {
