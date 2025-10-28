@@ -1,0 +1,85 @@
+serviceAccount:
+  create: false
+  name: ${service_account_name}
+
+adminPassword: ${admin_password}
+
+# Disable init containers that don't work with EFS
+initChownData:
+  enabled: false
+
+# Set security context to avoid permission issues
+securityContext:
+  runAsUser: 472
+  runAsGroup: 472
+  fsGroup: 472
+
+persistence:
+  enabled: true
+  storageClassName: efs-sc
+  size: ${grafana_storage}
+  accessModes:
+    - ReadWriteMany
+  annotations:
+    volume.beta.kubernetes.io/storage-provisioner: efs.csi.aws.com
+    volume.beta.kubernetes.io/mount-options: "basePath=/grafana"
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 3000
+
+datasources:
+  datasources.yaml:
+    apiVersion: 1
+    datasources:
+      - name: Prometheus
+        type: prometheus
+        url: http://prometheus-kube-prometheus-prometheus.${observability_namespace}.svc.cluster.local:9090
+        access: proxy
+        isDefault: true
+      - name: Loki
+        type: loki
+        url: http://loki-gateway.${observability_namespace}.svc.cluster.local:3100
+        access: proxy
+      - name: Tempo
+        type: tempo
+        url: http://tempo.${observability_namespace}.svc.cluster.local:3200
+        access: proxy
+
+dashboardProviders:
+  dashboardproviders.yaml:
+    apiVersion: 1
+    providers:
+      - name: default
+        orgId: 1
+        folder: ""
+        type: file
+        disableDeletion: false
+        editable: true
+        options:
+          path: /var/lib/grafana/dashboards/default
+
+dashboards:
+  default:
+    kubernetes-cluster-monitoring:
+      gnetId: 7249
+      revision: 1
+      datasource: Prometheus
+    kubernetes-pod-monitoring:
+      gnetId: 6417
+      revision: 1
+      datasource: Prometheus
+    loki-logs:
+      gnetId: 13639
+      revision: 2
+      datasource: Loki
+    tempo-tracing:
+      gnetId: 16308
+      revision: 1
+      datasource: Tempo
+
+env:
+  GF_FEATURE_TOGGLES_ENABLE: "tracing"
+  GF_INSTALL_PLUGINS: "grafana-piechart-panel"
+  GF_SERVER_ROOT_URL: "https://${domain_name}"

@@ -1,0 +1,25 @@
+serviceAccount:
+  create: false
+  name: ${service_account_name}
+
+persistence:
+  enabled: true
+  storageClass: ${storage_class_name}
+  size: ${pushgateway_storage}
+  accessModes:
+    - ReadWriteMany
+  annotations:
+    volume.beta.kubernetes.io/storage-provisioner: efs.csi.aws.com
+    volume.beta.kubernetes.io/mount-options: "basePath=/pushgateway"
+
+service:
+  type: ClusterIP
+  port: 9091
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 200m
+    memory: 256Mi

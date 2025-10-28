@@ -1,0 +1,107 @@
+loki:
+  auth_enabled: false
+  commonConfig:
+    replication_factor: 1
+  storage:
+    type: s3
+    s3:
+      s3: s3://${aws_region}/${s3_bucket_name}/loki
+      region: ${aws_region}
+    tsdb_shipper:
+      active_index_directory: /var/loki/tsdb-index
+      cache_location: /var/loki/tsdb-cache
+      shared_store: s3
+  schemaConfig:
+    configs:
+      - from: 2020-10-24
+        store: tsdb
+        object_store: s3
+        schema: v12
+        index:
+          prefix: index_
+          period: 24h
+  limits_config:
+    retention_period: 744h  # 31 days
+    ingestion_rate_mb: 16
+    ingestion_burst_size_mb: 32
+    per_stream_rate_limit: 3MB
+    per_stream_rate_limit_burst: 15MB
+
+serviceAccount:
+  create: false
+  name: ${service_account_name}
+
+write:
+  replicas: 1
+  persistence:
+    storageClass: ${storage_class_name}
+    size: ${loki_storage}
+    accessModes:
+      - ReadWriteMany
+    annotations:
+      volume.beta.kubernetes.io/storage-provisioner: efs.csi.aws.com
+      volume.beta.kubernetes.io/mount-options: "basePath=/loki/write"
+  resources:
+    requests:
+      cpu: 300m
+      memory: 512Mi
+    limits:
+      cpu: 500m
+      memory: 1Gi
+
+read:
+  replicas: 1
+  persistence:
+    storageClass: ${storage_class_name}
+    size: ${loki_storage}
+    accessModes:
+      - ReadWriteMany
+    annotations:
+      volume.beta.kubernetes.io/storage-provisioner: efs.csi.aws.com
+      volume.beta.kubernetes.io/mount-options: "basePath=/loki/read"
+  resources:
+    requests:
+      cpu: 300m
+      memory: 512Mi
+    limits:
+      cpu: 500m
+      memory: 1Gi
+
+backend:
+  replicas: 1
+  persistence:
+    storageClass: ${storage_class_name}
+    size: ${loki_storage}
+    accessModes:
+      - ReadWriteMany
+    annotations:
+      volume.beta.kubernetes.io/storage-provisioner: efs.csi.aws.com
+      volume.beta.kubernetes.io/mount-options: "basePath=/loki/backend"
+  resources:
+    requests:
+      cpu: 300m
+      memory: 512Mi
+    limits:
+      cpu: 500m
+      memory: 1Gi
+
+gateway:
+  enabled: true
+  replicas: 1
+  service:
+    type: ClusterIP
+    port: 80
+
+monitoring:
+  serviceMonitor:
+    enabled: true
+    namespace: ${observability_namespace}
+  selfMonitoring:
+    enabled: false
+    grafanaAgent:
+      installOperator: false
+  lokiCanary:
+    enabled: false
+
+test:
+  enabled: false

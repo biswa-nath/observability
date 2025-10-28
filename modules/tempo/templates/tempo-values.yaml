@@ -1,0 +1,54 @@
+tempo:
+  retention: 720h  # 30 days
+  storage:
+    trace:
+      backend: s3
+      s3:
+        bucket: ${s3_bucket_name}
+        endpoint: s3.${aws_region}.amazonaws.com
+        prefix: tempo
+        region: ${aws_region}
+  receivers:
+    otlp:
+      protocols:
+        grpc:
+          endpoint: 0.0.0.0:4317
+        http:
+          endpoint: 0.0.0.0:4318
+    jaeger:
+      protocols:
+        thrift_http:
+          endpoint: 0.0.0.0:14268
+        grpc:
+          endpoint: 0.0.0.0:14250
+    zipkin:
+      endpoint: 0.0.0.0:9411
+
+serviceAccount:
+  create: false
+  name: ${service_account_name}
+
+persistence:
+  enabled: true
+  storageClassName: ${storage_class_name}
+  size: ${tempo_storage}
+  accessModes:
+    - ReadWriteMany
+  annotations:
+    volume.beta.kubernetes.io/storage-provisioner: efs.csi.aws.com
+    volume.beta.kubernetes.io/mount-options: "basePath=/tempo"
+
+service:
+  type: ClusterIP
+
+resources:
+  requests:
+    cpu: 500m
+    memory: 1Gi
+  limits:
+    cpu: 1000m
+    memory: 2Gi
+
+serviceMonitor:
+  enabled: true
+  namespace: ${observability_namespace}

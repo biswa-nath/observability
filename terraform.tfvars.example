@@ -1,0 +1,24 @@
+# Example Terraform variables file
+# Copy this to terraform.tfvars and update with your values
+
+cluster_name         = "my-eks-cluster"
+external_domain_name = "grafana.example.com"
+internal_domain_name = "observability.internal.example.com"
+
+observability_namespace = "observability"
+
+# Storage configuration (Total EFS: 60Gi)
+storage_config = {
+  prometheus_storage   = "25Gi"  # Metrics data
+  alertmanager_storage = "5Gi"   # Alert state
+  grafana_storage      = "10Gi"  # Dashboards/config
+  loki_storage         = "5Gi"   # Per component (15Gi total for write/read/backend)
+  tempo_storage        = "10Gi"  # Trace cache
+  pushgateway_storage  = "5Gi"   # Batch metrics
+}
+
+tags = {
+  Environment = "production"
+  Project     = "observability"
+  ManagedBy   = "terraform"
+}

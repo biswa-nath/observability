@@ -1,0 +1,149 @@
+// Alloy configuration for logs, metrics, and traces
+
+// Kubernetes service discovery
+discovery.kubernetes "pods" {
+  role = "pod"
+}
+
+discovery.kubernetes "nodes" {
+  role = "node"
+}
+
+// ========== LOGS COLLECTION ==========
+
+// Log collection from Kubernetes pods
+loki.source.kubernetes "pods" {
+  targets    = discovery.kubernetes.pods.targets
+  forward_to = [loki.process.pod_logs.receiver]
+}
+
+// Process pod logs
+loki.process "pod_logs" {
+  forward_to = [loki.write.default.receiver]
+
+  stage.static_labels {
+    values = {
+      cluster = "${cluster_name}",
+    }
+  }
+
+  stage.drop {
+    source = "namespace"
+    value  = "kube-system"
+  }
+
+  stage.drop {
+    source = "namespace"
+    value  = "kube-public"
+  }
+
+  stage.drop {
+    source = "namespace"
+    value  = "kube-node-lease"
+  }
+}
+
+// Write logs to Loki
+loki.write "default" {
+  endpoint {
+    url = "http://loki-gateway.${observability_namespace}.svc.cluster.local/loki/api/v1/push"
+  }
+
+  external_labels = {
+    cluster = "${cluster_name}",
+    job     = "alloy",
+  }
+}
+
+// ========== METRICS COLLECTION ==========
+
+// Self-monitoring
+prometheus.exporter.self "alloy" {}
+
+prometheus.scrape "alloy" {
+  targets    = prometheus.exporter.self.alloy.targets
+  forward_to = [prometheus.remote_write.default.receiver]
+  job_name   = "alloy"
+}
+
+// Node exporter for system metrics
+prometheus.exporter.unix "node" {
+  include_exporter_metrics = true
+}
+
+prometheus.scrape "node" {
+  targets    = prometheus.exporter.unix.node.targets
+  forward_to = [prometheus.remote_write.default.receiver]
+  job_name   = "node"
+}
+
+// Write metrics to Prometheus
+prometheus.remote_write "default" {
+  endpoint {
+    url = "http://prometheus-kube-prometheus-prometheus.${observability_namespace}.svc.cluster.local:9090/api/v1/write"
+  }
+
+  external_labels = {
+    cluster = "${cluster_name}",
+    source  = "alloy",
+  }
+}
+
+// ========== TRACES COLLECTION ==========
+
+// OTLP receiver for traces
+otelcol.receiver.otlp "default" {
+  grpc {
+    endpoint = "0.0.0.0:4317"
+  }
+
+  http {
+    endpoint = "0.0.0.0:4318"
+  }
+
+  output {
+    traces = [otelcol.processor.batch.default.input]
+  }
+}
+
+// Jaeger receiver
+otelcol.receiver.jaeger "default" {
+  protocols {
+    grpc {
+      endpoint = "0.0.0.0:14250"
+    }
+    thrift_http {
+      endpoint = "0.0.0.0:14268"
+    }
+  }
+
+  output {
+    traces = [otelcol.processor.batch.default.input]
+  }
+}
+
+// Zipkin receiver
+otelcol.receiver.zipkin "default" {
+  endpoint = "0.0.0.0:9411"
+
+  output {
+    traces = [otelcol.processor.batch.default.input]
+  }
+}
+
+// Batch processor for traces
+otelcol.processor.batch "default" {
+  output {
+    traces = [otelcol.exporter.otlp.default.input]
+  }
+}
+
+// Export traces to Tempo
+otelcol.exporter.otlp "default" {
+  client {
+    endpoint = "http://tempo.${observability_namespace}.svc.cluster.local:4317"
+    tls {
+      insecure = true
+    }
+  }
+}

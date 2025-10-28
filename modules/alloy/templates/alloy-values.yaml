@@ -1,0 +1,54 @@
+serviceAccount:
+  create: false
+  name: ${service_account_name}
+
+controller:
+  type: daemonset
+
+alloy:
+  configMap:
+    create: false
+    name: alloy-config
+    key: config.alloy
+  
+  clustering:
+    enabled: true
+  
+  mounts:
+    dockersock: true
+    proc: true
+    sys: true
+    varlog: true
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+service:
+  enabled: true
+  type: ClusterIP
+  ports:
+    - name: http-metrics
+      port: 12345
+      targetPort: 12345
+      protocol: TCP
+    - name: otlp-grpc
+      port: 4317
+      targetPort: 4317
+      protocol: TCP
+    - name: otlp-http
+      port: 4318
+      targetPort: 4318
+      protocol: TCP
+
+serviceMonitor:
+  enabled: true
+  namespace: ${observability_namespace}
+
+securityContext:
+  privileged: true
+  runAsUser: 0
